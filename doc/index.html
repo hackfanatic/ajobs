@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>JQuery &middot; AjaxManager</title>
+    <meta name="description" content="">
+    <meta name="author" content="Shaabi Mohammed (Hackfanatic)">
+
+    <!-- Le styles -->
+    <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.2/css/bootstrap-combined.min.css" rel="stylesheet">
+    <style type="text/css">
+      body {
+        padding-top: 20px;
+        padding-bottom: 40px;
+      }
+
+      /* Custom container */
+      .container-narrow {
+        margin: 0 auto;
+        max-width: 700px;
+      }
+
+      .container-narrow > hr {
+        margin: 30px 0;
+      }
+
+      /* Main marketing message and sign up button */
+      .jumbotron {
+        margin: 60px 0;
+        text-align: center;
+      }
+
+      .jumbotron h1 {
+        font-size: 72px;
+        line-height: 1;
+      }
+
+      .jumbotron .btn {
+        font-size: 21px;
+        padding: 14px 24px;
+      }
+
+      /* Supporting marketing content */
+      .marketing {
+        margin: 60px 0;
+      }
+
+      .marketing p + h4 {
+        margin-top: 28px;
+      }
+    </style>
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+
+  <body>
+
+    <div class="container-narrow">
+
+      <div class="masthead">
+        <ul class="nav nav-pills pull-right">
+          <li class="active"><a href="#">Home</a></li>
+          <li><a href="#">Docs</a></li>
+        </ul>
+        <h3 class="muted">AjaxManager</h3>
+      </div>
+
+      <hr>
+
+      <div class="jumbotron">
+        <p class="lead">((jQuery)) aJobs 0.9</p>
+      </div>
+
+      <hr>
+
+      <div class="row-fluid marketing">
+        <div class="span10">
+          <p id="holder">The aJobs plugin will help organise and cache sets of ajax responses.</p>
+          <p id="holder">With a Jobs in a single javascript application you can store responses in using HTML5 Storage for different job lists, falling back to memory based cache on older browsers for the course of your app.</p>
+        </div>
+      </div>
+
+      <div class="row-fluid">
+        <div class="row">
+          <h5>Usage : </h5>
+          <p>In a single app, you can create as many custom joblists as you need. Each customised to used it own settings depending on your caching needs. <br/> The <i>joblist_id</i> is a unique key, trying to create multiple queues with the same id will result an error.</p>
+          <pre>
+            var job1 = $.ajobs.create(joblist_id, options);
+          </pre>
+          <h5>Options</h5>
+          <pre>
+            {
+              cacheType:'' ( possible values are none, var, localStorage, sessionStorage)
+              cacheTTL:20  ( TTL of the cache in seconds)
+              preventDoubleID:true ( Make sure the same ajax request not be called twice in the same queue)
+            }
+          </pre>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="footer">
+        <p>&copy; Hackfanatic 2012</p>
+      </div>
+
+    </div> <!-- /container -->
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.2/js/bootstrap.min.js"></script>
+    <script src="../json2.js"></script>
+    <script src="../jquery.ajobs.js"></script>
+    <script type="text/javascript">
+      // TEST 1
+      var job1 = $.ajobs.create('job_id_1', { // Testing parallel duplicates
+        cacheType:'sessionStorage',
+        cacheTTL: 60000 // expire sessionstorage in 60 seconds, or it automatically disappears on tab close
+      });
+
+      job1.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        console.log(data);
+      });
+
+      job1.run('id2', 'http://localhost/aq/tests/delay.php?t=2', 'GET', function(data) {
+        console.log(data);
+      });
+
+      job1.run('id3', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        console.log(data);
+      });
+
+      job1.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        console.log(data);
+      });
+
+      job1.run('id2', 'http://localhost/aq/tests/delay.php?t=2', 'GET', function(data) {
+        console.log(data);
+      });
+
+      job1.run('id3', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        console.log(data);
+      });
+
+      // TEST 2
+      var job2 = $.ajobs.create('job_id_2',{ 
+        cacheType:'sessionStorage',// Testing parallel duplicates
+        cacheTTL: 3000 // expire sessionstorage in 60 seconds, or it automatically disappears on tab close
+      }); // testing ttl expiry
+
+      job2.run('test1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        console.log(data);
+      });
+
+      // Testing expiry
+      setTimeout(function() {
+        console.log('reRunning expired job!');
+        job2.run('test1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+          console.log(data + ' & 5 second js timeout for testing TTLExpiry');
+        });
+      }, 5000);
+
+      // TEST 3
+      var job3 = $.ajobs.create('job_id_3', {// allowing duplicate in processing queue, load second call from cache
+        cacheType:'localStorage',
+        cacheTTL:-1, // 
+        noDuplicate:false
+      });
+
+      job3.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        console.log(data);
+      });
+
+      job3.run('id2', 'http://localhost/aq/tests/delay.php?t=3', 'GET', function(data) {
+        console.log(data);
+      });
+
+      job3.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        console.log(data);
+      });      
+    </script>
+  </body>
+</html>
