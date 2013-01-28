@@ -117,32 +117,32 @@
     <script src="../jquery.ajobs.js"></script>
     <script type="text/javascript">
       // TEST 1
-      var job1 = $.ajobs.create('job_id_1', { // Testing parallel duplicates
+/*      var job1 = $.ajobs.create('job_id_1', { // Testing parallel duplicates
         cacheType:'sessionStorage',
         cacheTTL: 60000 // expire sessionstorage in 60 seconds, or it automatically disappears on tab close
       });
 
-      job1.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+      job1.run('id1', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
       });
 
-      job1.run('id2', 'http://localhost/aq/tests/delay.php?t=2', 'GET', function(data) {
+      job1.run('id2', '../tests/delay.php?t=2', {},'GET', function(data) {
         console.log(data);
       });
 
-      job1.run('id3', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+      job1.run('id3', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
       });
 
-      job1.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+      job1.run('id1', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
       });
 
-      job1.run('id2', 'http://localhost/aq/tests/delay.php?t=2', 'GET', function(data) {
+      job1.run('id2', '../tests/delay.php?t=2', {},'GET', function(data) {
         console.log(data);
       });
 
-      job1.run('id3', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+      job1.run('id3', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
       });
 
@@ -152,14 +152,14 @@
         cacheTTL: 3000 // expire sessionstorage in 60 seconds, or it automatically disappears on tab close
       }); // testing ttl expiry
 
-      job2.run('test1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+      job2.run('test1', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
       });
 
       // Testing expiry
       setTimeout(function() {
         console.log('reRunning expired job!');
-        job2.run('test1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+        job2.run('test1', '../tests/delay.php?t=1', {},'GET', function(data) {
           console.log(data + ' & 5 second js timeout for testing TTLExpiry');
         });
       }, 5000);
@@ -171,17 +171,53 @@
         noDuplicate:false
       });
 
-      job3.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+      job3.run('id1', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
       });
 
-      job3.run('id2', 'http://localhost/aq/tests/delay.php?t=3', 'GET', function(data) {
+      job3.run('id2', '../tests/delay.php?t=3', {},'GET', function(data) {
         console.log(data);
       });
 
-      job3.run('id1', 'http://localhost/aq/tests/delay.php?t=1', 'GET', function(data) {
+      job3.run('id1', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
-      });      
-    </script>
+      });
+*/
+      // TEST 4
+      var res = $.ajobs.create('job_id_4', {
+        cacheType: 'sessionStorage',
+        cacheTTL: 5000, // 
+        noDuplicate:true
+      });
+
+      res.run('res_1', '../tests/res1.php?t=1', {},'GET', function(data, status) {
+        console.log(data);
+      });
+
+      res.runResource('../tests/res2.php?t=2', 'request[]' ,'POST', [
+        {
+          'task_id'       : 'res_1',
+          'talk'          : 'menu',
+          'callback'      : function(data, status) {
+            console.log(data);
+          }
+        },
+        {
+          'task_id'       : 'res_2',
+          'talk'          : 'menu/featured_items',
+          'callback'      : function(data, status) {
+            console.log(data);
+          }
+        },
+        {
+          'task_id'       : 'res_3',
+          'talk'          : 'data',
+          'callback'      : function(data, status) {
+            console.log(data);
+          }
+        }
+      ]);
+
+      </script>
   </body>
 </html>

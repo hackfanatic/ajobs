@@ -11,7 +11,7 @@
 	"use strict";
 
 	/* Variables */ 
-	var ajobs = {}, ajobcache = []; var cacheInit = false;
+	var ajobs = {}, ajobcache = [];
 	
 	/* Extend Storage cache to handle objects */
 	Storage.prototype.setObject = function(key, value) {
@@ -107,45 +107,145 @@
 		this.options = new $.extend({}, $.ajobs.defaults, options);// {} required for default options sanity
 	}
 
+	// TODO cut down and classify the prototype
+	// CLASS quite heavy
 	$.ajobs.taskList.prototype = {
 		// add to this tasklist
-		run: function(task_id, url, type, callback){
-			// if id already exists
-			if( this.list[task_id] !== undefined ){
-				// if paths match
-				if( this.list[task_id].orig_url != url ){
-					console.log('Cannot run '+task_id+' with a different URL');
-					return;
-				}
+		run: function(task_id, url, data, type, callback) {
+			var self=this;
+			if(!this._canBeAdded(task_id, url, false/*not a resource*/)) return;
 
-				if( this.options.noDuplicate == true && this.status < 2){
-					console.log('task with id already running, not adding ' + task_id);
-					return;
-				}
-			}
-			
-			// if object in cache
-			this.inProgress++;
-			var res = this.check(task_id);
-			if( res ) {
-				this.list[task_id] = res;
-				callback(res.data, 'cache');
-				this._minusProgress();
-			} else {
-				console.log('ajaxing : ' + task_id);
+			// try executing from cache first else create new request
+			if( this._tryRunFromCache(task_id, callback) ){
+				console.log('XHR-ing : ' + task_id);
 				// new request add to list and start
-				this.list[task_id] = new this._ajobObject(task_id, url, type, callback, this.options, this);
+				this.list[task_id] = new this._ajobObject({
+					'task_id'		: task_id ,
+					'orig_url'		: url ,
+					'type'			: type ,
+					'data'			: data,
+					'callback'		: callback,
+					/* Overloading */
+					'success'		: function (data, status, xhr) {
+						//Store in the cache
+						if( this.cacheType != 'none' ){
+							console.log(self.job_name + '; storing : ' + task_id);
+							var obj_data = JSON.parse(data);
+							self._addToCache(task_id, obj_data);		
+						}
+
+						// run callback function
+						callback(JSON.parse(data), status, this);
+					},
+					'complete' 		: function (xhr, status) { self._minusProgress(); }
+				});
 				
 				// run new ajax request and execute callback
 				$.ajax(this.list[task_id]);
 			}
 		},
 
+		runResource: function(url, req_var ,type, resource_list) {
+			var self = this;
+			var talk_resources = [];
+
+			$.each(resource_list, function(res_id, resource) {
+				// Check if this is cached & run
+				if( self._tryRunFromCache(resource.task_id, resource.callback) ){
+					// If i can be added
+					if(self._canBeAdded(resource.task_id, url, true/*not a resource*/)){
+						talk_resources.push(resource);
+						delete resource_list[res_id];
+					}
+				}
+			});
+
+			// Create data dict
+			var data = {};
+			data[req_var] = talk_resources;
+			
+			// try executing from cache first else add
+			if(talk_resources.length > 0){
+				var res_call  = new this._ajobObject({
+					'task_id'		: 'resource_call' ,
+					'orig_url'		: url ,
+					'type'			: type ,
+					'data'			: data,
+					'callback'		: this._resourceCallback,
+					/* Overloading */
+					'success'		: function(data, status, xhr){
+						console.log(self.job_name + ' ; NOT storing : ' + this.task_id);
+						self._resourceCallback(data, status, talk_resources)
+					},
+					'complete' 		: function (xhr, status) { self._minusProgress(); }
+				});
+
+				$.ajax(res_call);
+			}
+		},
+
+		// if id already exists
+		_canBeAdded: function(task_id, url, resource){
+			if( this.list[task_id] !== undefined ){
+				// if paths match
+				if( (this.list[task_id].orig_url != url) && !resource ){
+					console.log('Cannot run '+task_id+' with a different URL (' + this.list[task_id].orig_url + ', ' + url + ')' );
+					return false;
+				}
+
+				if( this.options.noDuplicate == true && this.status < 2){
+					//TODO check if task_id is actually running
+					console.log('task with id already running, not adding ' + task_id);
+					return false;
+				}
+			}
+			// ok to add
+			return true;
+		},
+
+		_tryRunFromCache: function(task_id, callback) {
+			// if result is from cache
+			this.inProgress++;
+			var result = this._getFromCache(task_id);
+
+			if ( result ) {
+				console.log('Running from cache : ' + task_id);
+				this.list[task_id] = result;
+
+				// execute callback
+				callback(result.content, 'cache');
+				this._minusProgress();
+				return false; // success so dont re run request
+			} return true;
+		},
+
+		_resourceCallback : function(data, status, resource_list){
+			var self = this;
+			/* Break down the call into its own counterparts */
+			$.each(resource_list, function(res_id, resource) {
+				console.log(self.job_name + '; storing from resource : ' + resource.task_id);
+				// 
+				var obj_data = JSON.parse(data);
+				self._addToCache(resource.task_id, obj_data[resource.talk]);
+
+				// call callback
+				if(resource.callback) resource.callback(obj_data[resource.talk], status);
+			});
+		},
+
+		_addToCache : function(task_id, data) {
+			ajobcache[this.job_name].setObject(this._taskCID(task_id), {
+				/* Cache OBJECT */
+				'timestamp'	: (new Date().getTime()),
+				'content'	: data
+			});
+		},
+
 		// check in the cache
-		check: function(task_id){
+		_getFromCache : function(task_id){
 			if ( this.options.cacheType != 'none' && ajobcache[this.job_name] ) {
 				// check if ttl valid, if yes return object
-				var obj = this._getFromCache(task_id);
+				var obj = ajobcache[this.job_name].getObject(this._taskCID(task_id));
 				return  this._checkTTL(obj);
 			} else return false; // not in cache
 		},
@@ -153,78 +253,26 @@
 		_checkTTL : function(obj){
 			var current_time = new Date().getTime();
 			// check if object exists, TTL is forever or if ttl has expired
-			//console.log(':'+(this.options.cacheTTL < 0)+':'+this.options.cacheTTL + ":" + (current_time - ( obj.timestamp + this.options.cacheTTL)) /*expiry*/);
-			return ( ( obj !== null ) && ( ( this.options.cacheTTL < 0 /*forever*/ ) || ( current_time < ( obj.timestamp + this.options.cacheTTL) /*expiry*/)) ) ? obj : false;
-		},
-
-		// abort any further requests from this tasklist
-		abort: function() {
-			// set to aborted state
-			this.status = 3;
-		},
-
-		// destroy this task
-		destroy: function() {
-			ajobs[self.job_name].abort();
-			delete ajobs[this.job_name];
-		},
-
-		_addToCache : function(task_id, obj) {
-			ajobcache[this.job_name].setObject(this._taskCID(task_id), obj);
-		},
-
-		_getFromCache : function(task_id){
-			return ajobcache[this.job_name].getObject(this._taskCID(task_id));
+			//console.log(':'+(this.options.cacheTTL < 0)+':'+this.options.cacheTTL + ":" + (current_time - ( obj.timestamp + this.options.cacheTTL)) /*expiry*/)
+;			return ( ( obj !== null ) && ( ( this.options.cacheTTL < 0 /*forever*/ ) || ( current_time < ( obj.timestamp + this.options.cacheTTL) /*expiry*/)) ) ? obj : false;
 		},
 
 		_taskCID : function (task_id){
 			return this.job_name+'.'+task_id;
 		},
 
-		/* ajobObj */
-		_ajobObject : function(task_id, url, type, callback, options, parent){
-			var self = this;
-			
-			return {
-				'id'			: task_id ,
-				'orig_url'		: url ,
-				'url'			: url ,
-				'type'			: type ,
-				'timestamp' 	: new Date().getTime() ,
+		/* ajobObj This needs to dissolve*/
+		_ajobObject : function(params) {
+			var object = {
+				'url'			: params.orig_url ,
 				'async'			: true ,
-				//'headers'		: { Accept : accept_string } ,
+				'headers'		: { Accept : 'Accept: application/json; version=1; client=live;' } ,
 				'xhrFields'		: { withCredentials: true } ,
-				'cache'			: options.ajaxCache,
-				'callback' 		: function(data, status) {
-					// invoke passed functions
-					callback(data, status);
-				} ,
-				// functions
-				'beforeSend' 	: function(xhr, opts) {
-					// dont make reqest if list is done or aborted
-					if(self.status >= 2){
-						// Todo pause it for now then resume after high prio ones
-						return false;
-					}
-
-				} ,
-				'complete' 		: function (xhr, status) {
-					parent._minusProgress();
-				} ,
-				'success'		: function (data, status, xhr) {
-					//Store in the cache
-					console.log(parent.job_name + '; storing : ' + task_id);
-					if(options.cacheType != 'none'){
-						parent._addToCache(task_id, { 
-							'timestamp' : this.timestamp,
-							'orig_url' : this.orig_url,
-							'data' : data 
-						});
-					}
-					// run callback function
-					this.callback(data, status);
-				}
+				'cache'			: false
 			}
+
+			// Return Final AJAX object
+			return $.extend(object, params);
 		},
 
 		/* End ajobObj */
