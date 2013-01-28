@@ -117,7 +117,7 @@
     <script src="../jquery.ajobs.js"></script>
     <script type="text/javascript">
       // TEST 1
-/*      var job1 = $.ajobs.create('job_id_1', { // Testing parallel duplicates
+      var job1 = $.ajobs.create('job_id_1', { // Testing parallel duplicates
         cacheType:'sessionStorage',
         cacheTTL: 60000 // expire sessionstorage in 60 seconds, or it automatically disappears on tab close
       });
@@ -182,7 +182,7 @@
       job3.run('id1', '../tests/delay.php?t=1', {},'GET', function(data) {
         console.log(data);
       });
-*/
+
       // TEST 4
       var res = $.ajobs.create('job_id_4', {
         cacheType: 'sessionStorage',

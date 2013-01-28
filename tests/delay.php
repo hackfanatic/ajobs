@@ -4,5 +4,5 @@
 
     $t=$_GET['t'];
     sleep($t);
-    echo "Content with $t second sleep";
 ?>
+{ "text" : "Content with <?=$t?> second sleep" }
