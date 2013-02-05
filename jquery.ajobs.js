@@ -70,9 +70,6 @@
 			} 
 
 			ajobcache[job_name] = selectedCache;
-			//this._makelist();
-			// made cache queue
-			
 			console.log('initialized cache '+ type);
 		},
 
@@ -107,8 +104,7 @@
 		this.options = new $.extend({}, $.ajobs.defaults, options);// {} required for default options sanity
 	}
 
-	// TODO cut down and classify the prototype
-	// CLASS quite heavy
+	// CLASS quite heavy need to simplify
 	$.ajobs.taskList.prototype = {
 		// add to this tasklist
 		run: function(task_id, url, data, type, callback) {
@@ -128,14 +124,10 @@
 					/* Overloading */
 					'success'		: function (data, status, xhr) {
 						//Store in the cache
-						if( this.cacheType != 'none' ){
-							console.log(self.job_name + '; storing : ' + task_id);
-							var obj_data = JSON.parse(data);
-							self._addToCache(task_id, obj_data);		
-						}
+						self._addToCache(task_id, data);		
 
 						// run callback function
-						callback(JSON.parse(data), status, this);
+						self._runCallback(data, status, callback);
 					},
 					'complete' 		: function (xhr, status) { self._minusProgress(); }
 				});
@@ -180,13 +172,14 @@
 					'complete' 		: function (xhr, status) { self._minusProgress(); }
 				});
 
+				// callback
 				$.ajax(res_call);
 			}
 		},
 
 		// if id already exists
 		_canBeAdded: function(task_id, url, resource){
-			if( this.list[task_id] !== undefined ){
+			if( typeof this.list[task_id] !== 'undefined' ){
 				// if paths match
 				if( (this.list[task_id].orig_url != url) && !resource ){
 					console.log('Cannot run '+task_id+' with a different URL (' + this.list[task_id].orig_url + ', ' + url + ')' );
@@ -213,8 +206,9 @@
 				this.list[task_id] = result;
 
 				// execute callback
-				callback(result.content, 'cache');
+				if(callback) callback(result.content, 'cache');
 				this._minusProgress();
+				
 				return false; // success so dont re run request
 			} return true;
 		},
@@ -224,21 +218,28 @@
 			/* Break down the call into its own counterparts */
 			$.each(resource_list, function(res_id, resource) {
 				console.log(self.job_name + '; storing from resource : ' + resource.task_id);
-				// 
-				var obj_data = JSON.parse(data);
-				self._addToCache(resource.task_id, obj_data[resource.talk]);
+				
+				self._addToCache(resource.task_id, data, resource.talk); // storing only subset
 
 				// call callback
-				if(resource.callback) resource.callback(obj_data[resource.talk], status);
+				self._runCallback(data, status, resource.callback);
 			});
 		},
 
-		_addToCache : function(task_id, data) {
-			ajobcache[this.job_name].setObject(this._taskCID(task_id), {
-				/* Cache OBJECT */
-				'timestamp'	: (new Date().getTime()),
-				'content'	: data
-			});
+		_addToCache : function(task_id, data, subset) {
+			// add if caching is enabled
+			if (this.options.cacheType != 'none'){
+				console.log(this.job_name + '; storing : ' + task_id);
+			
+				var obj_data = JSON.parse(data);
+				var sub_data = (typeof subset === 'undefined' ) ? obj_data : obj_data[subset];
+			
+				ajobcache[this.job_name].setObject(this._taskCID(task_id), {
+					/* Cache OBJECT */
+					'timestamp'	: (new Date().getTime()),
+					'content'	: sub_data
+				});
+			}
 		},
 
 		// check in the cache
@@ -246,15 +247,21 @@
 			if ( this.options.cacheType != 'none' && ajobcache[this.job_name] ) {
 				// check if ttl valid, if yes return object
 				var obj = ajobcache[this.job_name].getObject(this._taskCID(task_id));
-				return  this._checkTTL(obj);
+				return (this._checkTTL(obj)) ? obj : false;
 			} else return false; // not in cache
+		},
+
+		// execute the callback 
+		_runCallback : function(data, status, callback) {
+			var obj_data = JSON.parse(data);
+			if(typeof callback !== 'undefined') callback(obj_data, status); else console.log('no callback');
 		},
 
 		_checkTTL : function(obj){
 			var current_time = new Date().getTime();
 			// check if object exists, TTL is forever or if ttl has expired
 			//console.log(':'+(this.options.cacheTTL < 0)+':'+this.options.cacheTTL + ":" + (current_time - ( obj.timestamp + this.options.cacheTTL)) /*expiry*/)
-;			return ( ( obj !== null ) && ( ( this.options.cacheTTL < 0 /*forever*/ ) || ( current_time < ( obj.timestamp + this.options.cacheTTL) /*expiry*/)) ) ? obj : false;
+;			return ( ( obj !== null ) && ( ( this.options.cacheTTL < 0 /*forever*/ ) || ( current_time < ( obj.timestamp + this.options.cacheTTL) /*expiry*/)) ) ? true : false;
 		},
 
 		_taskCID : function (task_id){
