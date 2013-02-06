@@ -116,10 +116,15 @@
     <script src="../json2.js"></script>
     <script src="../jquery.ajobs.js"></script>
     <script type="text/javascript">
+
+      //Change global defaults
+      $.ajobs.defaults.header = 'Accept: application/json; version=1; client=live;';
+
       // TEST 1
       var job1 = $.ajobs.create('job_id_1', { // Testing parallel duplicates
         cacheType:'sessionStorage',
-        cacheTTL: 60000 // expire sessionstorage in 60 seconds, or it automatically disappears on tab close
+        cacheTTL: 60000, // expire sessionstorage in 60 seconds, or it automatically disappears on tab close
+        header: 'Accept: application/json; version=2; client=organiko;' // Header per Job List
       });
 
       job1.run('id1', '../tests/delay.php?t=1', {},'GET', function(data) {

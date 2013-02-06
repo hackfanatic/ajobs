@@ -41,8 +41,12 @@
 		},
 
 		destroy: function() {
-			ajobs[job_name].abort();
-			delete ajobs[job_name];
+			// TODO create proper destroy
+			// Remove Associated caches
+			// Remove associated jobs
+
+			//ajobs[job_name].abort();
+			//delete ajobs[job_name];
 		},
 
 		/* Caching Functions */
@@ -92,7 +96,8 @@
 		cacheType: 'none', // none, var, localStorage, sessionStorage
 		noDuplicate: true,
 		ajaxCache: false, // local ajax cache, keep false
-		cacheTTL: -1 // time to automated expiry in seconds
+		cacheTTL: -1, // time to automated expiry in seconds
+		header: '' // Accept: application/json; version=1; client=live;
 	};
 
 	/* aJob Objects */
@@ -121,6 +126,8 @@
 					'type'			: type ,
 					'data'			: data,
 					'callback'		: callback,
+					'headers'		: { Accept : self.options.header } , 
+
 					/* Overloading */
 					'success'		: function (data, status, xhr) {
 						//Store in the cache
@@ -133,6 +140,7 @@
 				});
 				
 				// run new ajax request and execute callback
+				console.log('header :' +self.options.header)
 				$.ajax(this.list[task_id]);
 			}
 		},
@@ -261,19 +269,18 @@
 			var current_time = new Date().getTime();
 			// check if object exists, TTL is forever or if ttl has expired
 			//console.log(':'+(this.options.cacheTTL < 0)+':'+this.options.cacheTTL + ":" + (current_time - ( obj.timestamp + this.options.cacheTTL)) /*expiry*/)
-;			return ( ( obj !== null ) && ( ( this.options.cacheTTL < 0 /*forever*/ ) || ( current_time < ( obj.timestamp + this.options.cacheTTL) /*expiry*/)) ) ? true : false;
+			return ( ( obj !== null ) && ( ( this.options.cacheTTL < 0 /*forever*/ ) || ( current_time < ( obj.timestamp + this.options.cacheTTL) /*expiry*/)) ) ? true : false;
 		},
 
 		_taskCID : function (task_id){
 			return this.job_name+'.'+task_id;
 		},
 
-		/* ajobObj This needs to dissolve*/
+		/* ajobObj This needs to dissolve */
 		_ajobObject : function(params) {
 			var object = {
 				'url'			: params.orig_url ,
 				'async'			: true ,
-				'headers'		: { Accept : 'Accept: application/json; version=1; client=live;' } ,
 				'xhrFields'		: { withCredentials: true } ,
 				'cache'			: false
 			}
