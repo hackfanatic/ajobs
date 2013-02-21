@@ -10,6 +10,9 @@
 (function( $ ) {
 	"use strict";
 
+	// Enable support for jQuery CORS
+	$.support.cors = true;
+
 	/* Variables */ 
 	var ajobs = {}, ajobcache = [];
 	
@@ -97,7 +100,8 @@
 		noDuplicate: true,
 		ajaxCache: false, // local ajax cache, keep false
 		cacheTTL: -1, // time to automated expiry in seconds
-		header: '' // Accept: application/json; version=1; client=live;
+		header: '', // Accept: application/json; version=1; client=live;
+		requestFn = $.ajax
 	};
 
 	/* aJob Objects */
@@ -268,7 +272,7 @@
 		_checkTTL : function(obj){
 			var current_time = new Date().getTime();
 			// check if object exists, TTL is forever or if ttl has expired
-			//console.log(':'+(this.options.cacheTTL < 0)+':'+this.options.cacheTTL + ":" + (current_time - ( obj.timestamp + this.options.cacheTTL)) /*expiry*/)
+			// console.log(':'+(this.options.cacheTTL < 0)+':'+this.options.cacheTTL + ":" + (current_time - ( obj.timestamp + this.options.cacheTTL)) /*expiry*/)
 			return ( ( obj !== null ) && ( ( this.options.cacheTTL < 0 /*forever*/ ) || ( current_time < ( obj.timestamp + this.options.cacheTTL) /*expiry*/)) ) ? true : false;
 		},
 
